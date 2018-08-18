@@ -2,3 +2,8 @@
 /mysql
 /var
 .DS_Store
+/sites/*
+!/sites/.gitkeep
+/provisioning/nginx/sites-enabled/*
+!/provisioning/nginx/sites-enabled/000-localhost.conf
+!/provisioning/nginx/sites-enabled/default

@@ -1,5 +1,5 @@
 # -- Configuration ------------------------------------------------------------------------------
-boxName = "docker.box"
+boxName = "boiler.box"
 # Define what services you want in the box. Options are: apache2 | nginx | mysql | dotnet  | php | node
 services = [
   "mysql",
