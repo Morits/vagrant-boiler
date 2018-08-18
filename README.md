@@ -23,3 +23,5 @@ services = [
 ```
 $ vagrant up
 ```
+
+When mysql is enabled you may be prompted for password for nfs share (linux / macOS) or smb (Windows).
