@@ -1,4 +1,5 @@
 .vagrant
+.idea
 /mysql
 /var
 .DS_Store
