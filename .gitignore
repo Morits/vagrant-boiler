@@ -1,0 +1,4 @@
+.vagrant
+/mysql
+/var
+.DS_Store
