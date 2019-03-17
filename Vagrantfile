@@ -8,8 +8,9 @@ services = [
 #  "dotnet",
   "php",
 #  "node",
-#  "docker"
-  "phpmyadmin"
+#  "docker",
+  "phpmyadmin",
+  "aws-cli",
 ];
 ip = "192.168.33.10"
 

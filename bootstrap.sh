@@ -131,6 +131,19 @@ if [ $(contains "${services[@]}" "--docker") == "y" ]; then
 	apt-get update
 	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install docker-ce
 	usermod -aG docker vagrant
+	curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+	chmod +x /usr/local/bin/docker-compose
+	#base=https://github.com/docker/machine/releases/download/v0.14.0 && curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/tmp/docker-machine && install /tmp/docker-machine /usr/local/bin/docker-machine
+	#base=https://raw.githubusercontent.com/docker/machine/v0.14.0
+	#for i in docker-machine-prompt.bash docker-machine-wrapper.bash docker-machine.bash
+	#do
+	#  sudo wget "$base/contrib/completion/bash/${i}" -P /etc/bash_completion.d
+	#done
+fi
+
+if [ $(contains "${services[@]}" "--aws-cli") == "y" ]; then
+	apt install python-pip
+	pip install awscli
 fi
 
 if [ $(contains "${services[@]}" "--apache2") == "y" ] || [ $(contains "${services[@]}" "--nginx") == "y" ]; then
