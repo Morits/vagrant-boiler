@@ -1,3 +1,35 @@
+# For passwordless ups enter these lines in your sudoers file: /etc/sudoers using visudo
+# macOS:
+=begin
+# let vagrant create nfs exports
+Cmnd_Alias VAGRANT_EXPORTS_ADD = /usr/bin/tee -a /etc/exports
+Cmnd_Alias VAGRANT_NFSD = /sbin/nfsd restart
+Cmnd_Alias VAGRANT_EXPORTS_REMOVE = /usr/bin/sed -E -e /*/ d -ibak /etc/exports
+%admin ALL=(root) NOPASSWD: VAGRANT_EXPORTS_ADD, VAGRANT_NFSD, VAGRANT_EXPORTS_REMOVE
+=end
+
+# Ubuntu / Debian:
+=begin
+# let vagrant create nfs exports
+Cmnd_Alias VAGRANT_EXPORTS_CHOWN = /bin/chown 0\:0 /tmp/*
+Cmnd_Alias VAGRANT_EXPORTS_MV = /bin/mv -f /tmp/* /etc/exports
+Cmnd_Alias VAGRANT_NFSD_CHECK = /etc/init.d/nfs-kernel-server status
+Cmnd_Alias VAGRANT_NFSD_START = /etc/init.d/nfs-kernel-server start
+Cmnd_Alias VAGRANT_NFSD_APPLY = /usr/sbin/exportfs -ar
+%sudo ALL=(root) NOPASSWD: VAGRANT_EXPORTS_CHOWN, VAGRANT_EXPORTS_MV, VAGRANT_NFSD_CHECK, VAGRANT_NFSD_START, VAGRANT_NFSD_APPLY
+=end
+
+# Fedora:
+=begin
+# let vagrant create nfs exports
+Cmnd_Alias VAGRANT_EXPORTS_CHOWN = /bin/chown 0\:0 /tmp/*
+Cmnd_Alias VAGRANT_EXPORTS_MV = /bin/mv -f /tmp/* /etc/exports
+Cmnd_Alias VAGRANT_NFSD_CHECK = /usr/bin/systemctl status --no-pager nfs-server.service
+Cmnd_Alias VAGRANT_NFSD_START = /usr/bin/systemctl start nfs-server.service
+Cmnd_Alias VAGRANT_NFSD_APPLY = /usr/sbin/exportfs -ar
+%vagrant ALL=(root) NOPASSWD: VAGRANT_EXPORTS_CHOWN, VAGRANT_EXPORTS_MV, VAGRANT_NFSD_CHECK, VAGRANT_NFSD_START, VAGRANT_NFSD_APPLY
+=end
+
 # -- Configuration ------------------------------------------------------------------------------
 boxName = "boiler.box"
 # Define what services you want in the box. Options are: apache2 | nginx | mysql | dotnet  | php | node
@@ -51,14 +83,11 @@ Vagrant.configure("2") do |config|
     v.memory = 512
     v.cpus = 4
   end
+  
+  # set up port forwarding for xdebug listener
+  config.ssh.extra_args = "-R 9000:localhost:9000"
 
-  # Setup mysql shares (nfs on mac or smb in windows)
-  # 
-  # OSX: /etc/sudoers (for not having to enter password)
-  # Cmnd_Alias VAGRANT_EXPORTS_ADD = /usr/bin/tee -a /etc/exports
-  # Cmnd_Alias VAGRANT_NFSD = /sbin/nfsd restart
-  # Cmnd_Alias VAGRANT_EXPORTS_REMOVE = /usr/bin/sed -E -e /*/ d -ibak /etc/exports
-  # %admin ALL=(root) NOPASSWD: VAGRANT_EXPORTS_ADD, VAGRANT_NFSD, VAGRANT_EXPORTS_REMOVE
+  # Setup mysql shares (nfs on mac, *nix or smb in windows)
   if services.include? "mysql"
     if OS.windows?
       config.vm.synced_folder "./mysql/", "/var/lib/mysqldata", create: true, type: "smb",
