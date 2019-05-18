@@ -33,10 +33,12 @@ if [ $(contains "${services[@]}" "--nginx") == "y" ]; then
 fi
 
 apt-get -y update
-DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install tmux aptitude htop sendmail zsh
+DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install tmux aptitude htop zsh curl vim apt-transport-https ca-certificates gnupg2 software-properties-common
+
 # -- sendmail config -------------------------
-printf "y\ny\ny\n" > /tmp/dass
-sendmailconfig < /tmp/dass
+#DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install sendmail
+#printf "y\ny\ny\n" > /tmp/dass
+#sendmailconfig < /tmp/dass
 # -- zsh config -------------------------------
 echo "source /media/etc/.zshrc" > /home/vagrant/.zshrc
 chsh -s `which zsh` vagrant
@@ -63,12 +65,15 @@ if [ $(contains "${services[@]}" "--mysql") == "y" ]; then
 		echo "
 		CREATE USER 'admin'@'localhost' IDENTIFIED BY 'root';
 		GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION;
+		CREATE USER 'admin'@'172.20.0.%' IDENTIFIED BY 'root';
+		GRANT ALL PRIVILEGES ON *.* TO 'admin'@'172.20.0.%' WITH GRANT OPTION;
 		FLUSH PRIVILEGES;" | mysql -u root
 	fi
 
 	service mariadb stop
 	update-rc.d -f mariadb remove
 	systemctl disable mariadb
+	#systemctl disable mysql
 	if [ ! -f /var/lib/mysqldata/ibdata1 ]; then
 		cp -r /var/lib/mysql/* /var/lib/mysqldata/
 	fi
@@ -101,48 +106,57 @@ if [ $(contains "${services[@]}" "--nginx") == "y" ]; then
 fi
 
 if [ $(contains "${services[@]}" "--php") == "y" ]; then
-	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install php7.1-fpm php7.1-mbstring php7.1-imagick php7.1-mysqli php7.1-curl php7.1-dom php7.1-zip php7.1-gd
-	mv /etc/php/7.1/cli/php{.ini,.ini.old} 
-	mv /etc/php/7.1/fpm/php{.ini,.ini.old}
-	ln -s /vagrant/provisioning/php/php.ini /etc/php/7.1/cli/php.ini
-	ln -s /vagrant/provisioning/php/php.ini /etc/php/7.1/fpm/php.ini
-	service php7.1-fpm stop
-	update-rc.d -f php7.1-fpm remove
-	systemctl disable php7.1-fpm
+	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install php-fpm php-mbstring php-imagick php-mysqli php-curl php-dom php-zip php-gd
+	mv /etc/php/7.0/cli/php{.ini,.ini.old} 
+	mv /etc/php/7.0/fpm/php{.ini,.ini.old}
+	ln -s /vagrant/provisioning/php/php.ini /etc/php/7.0/cli/php.ini
+	ln -s /vagrant/provisioning/php/php.ini /etc/php/7.0/fpm/php.ini
+	service php7.0-fpm stop
+	update-rc.d -f php7.0-fpm remove
+	systemctl disable php7.0-fpm
 	if [ $(contains "${services[@]}" "--apache2") == "y" ]; then
-		sed -i 's|^listen = .*$|listen = 127.0.0.1:9000|g' /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i 's|^listen = .*$|listen = 127.0.0.1:9000|g' /etc/php/7.0/fpm/pool.d/www.conf
 	fi
 	if [ $(contains "${services[@]}" "--nginx") == "y" ]; then
-		sed -i 's|^listen = .*$|listen = /run/php/php7.1-fpm.sock|g' /etc/php/7.1/fpm/pool.d/www.conf
+		sed -i 's|^listen = .*$|listen = /run/php/php7.1-fpm.sock|g' /etc/php/7.0/fpm/pool.d/www.conf
 	fi
 fi
 
 if [ $(contains "${services[@]}" "--dotnet") == "y" ]; then
-	wget -q https://packages.microsoft.com/config/ubuntu/17.10/packages-microsoft-prod.deb -P /tmp
-	dpkg -i /tmp/packages-microsoft-prod.deb
+	wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.asc.gpg
+	mv microsoft.asc.gpg /etc/apt/trusted.gpg.d/
+	wget -q https://packages.microsoft.com/config/debian/9/prod.list
+	mv prod.list /etc/apt/sources.list.d/microsoft-prod.list
 	apt-get update
 	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install dotnet-sdk-2.1
 	#dotnet-hosting-2.0.6
 fi
 
 if [ $(contains "${services[@]}" "--docker") == "y" ]; then
+	# official version
 	curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-	add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+	add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 	apt-get update
 	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install docker-ce
 	usermod -aG docker vagrant
-	curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
-	chmod +x /usr/local/bin/docker-compose
+
+	# DockerCompose
+	#curl -L https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+	#chmod +x /usr/local/bin/docker-compose
+
+
+	# AutoComplete
 	#base=https://github.com/docker/machine/releases/download/v0.14.0 && curl -L $base/docker-machine-$(uname -s)-$(uname -m) >/tmp/docker-machine && install /tmp/docker-machine /usr/local/bin/docker-machine
 	#base=https://raw.githubusercontent.com/docker/machine/v0.14.0
 	#for i in docker-machine-prompt.bash docker-machine-wrapper.bash docker-machine.bash
 	#do
 	#  sudo wget "$base/contrib/completion/bash/${i}" -P /etc/bash_completion.d
 	#done
+	echo "docker"
 fi
 
 if [ $(contains "${services[@]}" "--aws-cli") == "y" ]; then
-	apt install python-pip
+	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install python-pip
 	pip install awscli
 fi
 
@@ -156,3 +170,19 @@ if [ $(contains "${services[@]}" "--phpmyadmin") == "y" ] && [ ! -d /var/www/sit
 		cp /vagrant/provisioning/sites/phpmyadmin.local/nginx/phpmyadmin.local.conf /etc/nginx/sites-enabled/
 	fi
 fi
+
+# -- Leave jenkins for last so it is easy to find the admin password --------------------------------------------
+if [ $(contains "${services[@]}" "--jenkins") == "y" ]; then
+	# Install java
+	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install openjdk-8-jdk
+
+	# install jenkins
+	wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add -
+	sh -c 'echo deb http://pkg.jenkins.io/debian-stable binary/ > /etc/apt/sources.list.d/jenkins.list'
+	apt update
+	DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt-get -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" -y install jenkins
+	echo "jenkins url: http://"$(get "${services[@]}" "--jenkins")":8080"
+	echo "jenkins password: `cat /var/lib/jenkins/secrets/initialAdminPassword`"
+
+	# TODO: put ssh keys somewhere in jenkins "home"???
+fi	

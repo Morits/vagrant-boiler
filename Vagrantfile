@@ -35,14 +35,18 @@ boxName = "boiler.box"
 # Define what services you want in the box. Options are: apache2 | nginx | mysql | dotnet  | php | node
 services = [
   "mysql",
-  "nginx",
+#  "nginx",
 #  "apache2",
 #  "dotnet",
-  "php",
+#  "php",
 #  "node",
-#  "docker",
-  "phpmyadmin",
-  "aws-cli",
+  "docker",
+#  "phpmyadmin",
+#  "aws-cli",
+#  "jenkins",
+# -- Todos: 
+  #{}"phpCodeSniffer",
+  #{}"phpmd",
 ];
 ip = "192.168.33.10"
 
@@ -68,16 +72,18 @@ end
 
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "bento/ubuntu-17.10"
+  config.vm.box = "debian/contrib-stretch64"
 
   config.vm.define boxName
   config.vm.hostname = boxName
   config.vm.box_check_update = false
   config.vm.network "private_network", ip: ip
 
+  config.ssh.extra_args = []
   if services.include? "dotnet"
-    config.ssh.extra_args = ["-L" "5000:localhost:5000" ]
+    config.ssh.extra_args << "-L" << "5000:localhost:5000"
   end 
+  config.ssh.extra_args << "-L" << "5050:localhost:5050"
 
   config.vm.provider "virtualbox" do |v|
     v.memory = 512
@@ -85,7 +91,7 @@ Vagrant.configure("2") do |config|
   end
   
   # set up port forwarding for xdebug listener
-  config.ssh.extra_args = "-R 9000:localhost:9000"
+  config.ssh.extra_args << "-R" << "9000:localhost:9000"
 
   # Setup mysql shares (nfs on mac, *nix or smb in windows)
   if services.include? "mysql"
@@ -115,6 +121,10 @@ Vagrant.configure("2") do |config|
     config.vm.synced_folder "./var/log/php", "/var/log/php", create: true, owner: "root", group: "root"
   end
 
+  if services.include? "docker"
+    config.vm.synced_folder "./docker", "/home/vagrant/.docker", create: true, owner: "vagrant", group: "vagrant"
+  end
+
   # Sites
   config.vm.synced_folder "./sites", "/var/www/sites", create: true, owner: 33, group: 33
 
@@ -125,7 +135,7 @@ Vagrant.configure("2") do |config|
   services.each { |x|
     provisionArgs = provisionArgs + " --" + x
   }
-  config.vm.provision :shell, path: "bootstrap.sh", :args => provisionArgs
+  config.vm.provision :shell, path: "bootstrap.sh", :args => provisionArgs + " --ip=" + ip
 
   if services.include? "apache2"
     config.vm.provision "shell", run: "always", inline: "service apache2 start"
@@ -143,6 +153,6 @@ Vagrant.configure("2") do |config|
 
   config.trigger.before :halt, :suspend, :destroy do |trigger|
       trigger.info = "Copying etc.ext4.img back to /vagrant/etc.ext4.img"
-      trigger.run_remote = {inline: "cp /home/vagrant/etc.ext4.img /vagrant/"}
+      trigger.run_remote = {inline: "sync; cp /home/vagrant/etc.ext4.img /vagrant/"}
   end 
 end

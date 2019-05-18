@@ -1,6 +1,7 @@
 #!/bin/bash
 if [ ! -f /home/vagrant/etc.ext4.img ]; then
 	if [ -f /vagrant/etc.ext4.img ]; then
+		echo "copying image from: /vagrant/etc.ext4.img to: /home/vagrant"
 		cp /vagrant/etc.ext4.img /home/vagrant
 	else
 		echo "etc image not found!"
@@ -8,9 +9,9 @@ if [ ! -f /home/vagrant/etc.ext4.img ]; then
 fi
 
 if [ ! -d /media/etc ]; then
+	echo "mkdir /media/etc"
 	mkdir /media/etc
-fi	
+fi
 
-part="p1"
-looif=`losetup -fP --show /home/vagrant/etc.ext4.img`
-mount "$looif$part" /media/etc
+echo "mount -t ext4 -o loop /home/vagrant/etc.ext4.img /media/etc"
+mount -t ext4 -o loop /home/vagrant/etc.ext4.img /media/etc
