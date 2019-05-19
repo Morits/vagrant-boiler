@@ -165,10 +165,23 @@ if [ $(contains "${services[@]}" "--apache2") == "y" ] || [ $(contains "${servic
 fi
 
 if [ $(contains "${services[@]}" "--phpmyadmin") == "y" ] && [ ! -d /var/www/sites/phpMyAdmin ]; then
-	cp -r /vagrant/provisioning/sites/phpmyadmin.local/files /var/www/sites/phpMyAdmin.local
-	if [ $(contains "${services[@]}" "--nginx") == "y" ] && [ ! -f /etc/nginx/sites-enabled/phpmyadmin.local.conf ]; then
-		cp /vagrant/provisioning/sites/phpmyadmin.local/nginx/phpmyadmin.local.conf /etc/nginx/sites-enabled/
-	fi
+	phpMyAdminVersion="4.8.5"
+	wget -O /tmp/phpMyAdmin.tar.gz "https://files.phpmyadmin.net/phpMyAdmin/${phpMyAdminVersion}/phpMyAdmin-${phpMyAdminVersion}-all-languages.tar.gz"
+	remoteSha="`wget -qO- https://files.phpmyadmin.net/phpMyAdmin/${phpMyAdminVersion}/phpMyAdmin-${phpMyAdminVersion}-all-languages.tar.gz.sha256 | awk '{print $1}'`"
+	localSha=`sha256sum /tmp/phpMyAdmin.tar.gz | awk '{print $1}'`
+
+	if [ "${remoteSha}" == "${localSha}" ]; then
+        tar xzvf /tmp/phpMyAdmin.tar.gz -C /var/www/sites
+        mv "/var/www/sites/phpMyAdmin-${phpMyAdminVersion}-all-languages" "/var/www/sites/phpMyAdmin.local"
+        rm /tmp/phpMyAdmin.tar.gz
+        printf  "<?php\n\$cfg['Servers'][1]['auth_type'] = 'config';\n\$cfg['Servers'][1]['user'] = 'admin';\n\$cfg['Servers'][1]['password'] = 'root';\n\$cfg['Servers'][1]['host'] = 'localhost';\n\$cfg['Servers'][1]['compress'] = false;\n\$cfg['Servers'][1]['AllowNoPassword'] = false;" > /var/www/sites/phpMyAdmin.local/config.inc.php
+
+        if [ $(contains "${services[@]}" "--nginx") == "y" ] && [ ! -f /etc/nginx/sites-enabled/phpmyadmin.local.conf ]; then
+			cp /vagrant/provisioning/sites/phpmyadmin.local/nginx/phpmyadmin.local.conf /etc/nginx/sites-enabled/
+		fi
+    else
+    	1>&2 echo "Error installing phpMyAdmin: Shasum does not match: local: ${localSha} remote: ${remoteSha}"
+    fi
 fi
 
 # -- Leave jenkins for last so it is easy to find the admin password --------------------------------------------
